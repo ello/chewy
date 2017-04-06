@@ -217,12 +217,22 @@ module Chewy
 
         def fetch_indexed_objects(objects)
           ids = objects.map { |object| object.respond_to?(:id) ? object.id : object }
-          result = client.search index: index_name,
-                                 type: type_name,
-                                 fields: '_parent',
-                                 body: { filter: { ids: { values: ids } } },
-                                 search_type: 'scan',
-                                 scroll: '1m'
+          begin
+            # 1.x query
+            result = client.search index: index_name,
+                                   type: type_name,
+                                   fields: '_parent',
+                                   body: { filter: { ids: { values: ids } } },
+                                   search_type: 'scan',
+                                   scroll: '1m'
+          rescue Elasticsearch::Transport::Transport::Errors::BadRequest
+            # 5.x query
+            result = client.search index: index_name,
+                                   type: type_name,
+                                   stored_fields: '_parent',
+                                   body: {query: {bool: { filter: { ids: { values: ids } } } } },
+                                   scroll: '1m'
+          end
 
           indexed_objects = {}
 
